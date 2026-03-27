@@ -1,0 +1,16 @@
+# Local planning and context
+Context/
+
+# Project dependencies and build artifacts (from spill_tea/)
+spill_tea/node_modules/
+spill_tea/.next/
+spill_tea/out/
+spill_tea/build/
+
+# Environment variables
+.env*
+spill_tea/.env*
+
+# OS specific files
+.DS_Store
+Thumbs.db
