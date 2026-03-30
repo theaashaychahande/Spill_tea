@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import Navbar from '../../../components/Navbar';
+import ResultCard from '../../../components/ResultCard';
 import { subscribeToBook } from '../../../lib/firebase';
-import html2canvas from 'html2canvas';
 
 const FILLER_NAMES = [
   'Anonymous Friend', 'Mystery Pal', 'Secret Admirer', 'Hidden Buddy',
@@ -250,11 +251,30 @@ function FloatingButton({ onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="fixed bottom-8 right-8 px-6 py-4 bg-black dark:bg-white text-white dark:text-black font-bold rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-transform z-[9999] flex items-center gap-2"
+      className="fixed bottom-8 right-8 px-6 py-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-transform z-[9999] flex items-center gap-2"
     >
-      Generate My Card
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+      Generate Card
     </button>
   );
+}
+
+function ErrorBoundary({ children, fallback }) {
+  const [hasError, setHasError] = useState(false);
+  
+  useEffect(() => {
+    const handleError = () => setHasError(true);
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+  
+  if (hasError) {
+    return fallback;
+  }
+  
+  return children;
 }
 
 export default function ResultsPage() {
@@ -265,8 +285,8 @@ export default function ResultsPage() {
   const [responses, setResponses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-  const [cardRef, setCardRef] = useState(null);
-  const [generating, setGenerating] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState('dark');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!bookId) return;
@@ -277,6 +297,9 @@ export default function ResultsPage() {
         setResponses(data.responses);
       }
       setIsLoading(false);
+    }, (err) => {
+      setError(err.message || 'Failed to load slam book');
+      setIsLoading(false);
     });
 
     return () => unsubscribe();
@@ -285,60 +308,38 @@ export default function ResultsPage() {
   const stats = book?.questions ? calculateStats(responses, book.questions) : null;
 
   const handleGenerateCard = () => {
-    const card = document.getElementById('card-preview');
-    
-    if (!card) {
-      alert('Card not found');
-      return;
-    }
-    
-    setGenerating(true);
-    
-    html2canvas(card, {
-      backgroundColor: '#1a1a1a',
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-    }).then(canvas => {
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.download = `spill-tea-card-${Date.now()}.png`;
-          link.href = url;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          setTimeout(() => URL.revokeObjectURL(url), 100);
-        } else {
-          alert('Failed to create image');
-        }
-        setGenerating(false);
-      }, 'image/png');
-    }).catch(error => {
-      console.error('Error:', error);
-      alert('Failed to generate card');
-      setGenerating(false);
-    });
+    window.scrollTo({ top: document.getElementById('card-section')?.offsetTop || 0, behavior: 'smooth' });
+    setActiveTab('card');
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-center">
-          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-zinc-200 dark:bg-zinc-800" />
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-pink-500 to-purple-500" />
           <p className="text-zinc-500">Loading Results...</p>
         </div>
       </div>
     );
   }
 
-  if (!book) {
+  if (error || !book) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-xl font-semibold mb-2">Book not found</p>
-          <p className="text-zinc-500">This slam book may have been deleted or the link is invalid.</p>
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <div className="w-24 h-24 mx-auto mb-6 text-zinc-300 dark:text-zinc-700">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Oops! Something went wrong</h2>
+          <p className="text-zinc-500 mb-6">{error || 'This slam book may have been deleted or the link is invalid.'}</p>
+          <Link href="/" className="inline-flex items-center gap-2 px-6 py-3 bg-black dark:bg-white text-white dark:text-black font-medium rounded-full hover:opacity-90 transition-opacity">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Go Home
+          </Link>
         </div>
       </div>
     );
@@ -359,7 +360,7 @@ export default function ResultsPage() {
 
           <div className="border-b border-zinc-200 dark:border-zinc-800">
             <nav className="flex gap-1">
-              {['overview', 'responses'].map((tab) => (
+              {['overview', 'responses', 'card'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -369,7 +370,7 @@ export default function ResultsPage() {
                       : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
                   }`}
                 >
-                  {tab}
+                  {tab === 'card' ? 'Generate Card' : tab}
                 </button>
               ))}
             </nav>
@@ -435,33 +436,15 @@ export default function ResultsPage() {
                 </div>
               </section>
 
-              <section className="space-y-4">
-                <h3 className="text-base font-semibold">Card Preview</h3>
-                <div className="bg-zinc-100 dark:bg-zinc-800 rounded-2xl p-4 flex justify-center">
-                  <div 
-                    id="card-preview"
-                    className="w-[280px] h-[498px] rounded-2xl bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 text-white p-6 flex flex-col shadow-2xl"
-                  >
-                    <div className="text-center mb-6">
-                      <p className="text-xs uppercase tracking-widest text-zinc-400">My friends think I am...</p>
-                    </div>
-                    
-                    <div className="flex-1 flex flex-col justify-center items-center text-center space-y-4">
-                      {stats.oneWordAnswers.length > 0 ? (
-                        [...new Set(stats.oneWordAnswers.map(w => w.toLowerCase()))]
-                          .slice(0, 5)
-                          .map((word, idx) => (
-                            <p key={idx} className="text-2xl font-bold capitalize">{word}</p>
-                          ))
-                      ) : (
-                        <p className="text-lg text-zinc-500">Share your slam book!</p>
-                      )}
-                    </div>
-                    
-                    <div className="text-center mt-auto">
-                      <p className="text-xs text-zinc-500">spill.app</p>
-                    </div>
-                  </div>
+              <section id="card-section" className="space-y-4">
+                <h3 className="text-base font-semibold">Generate Your Card</h3>
+                <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6">
+                  <ResultCard 
+                    responses={stats.oneWordAnswers} 
+                    category={book?.category || 'friends'}
+                    template={selectedTemplate}
+                    onTemplateChange={setSelectedTemplate}
+                  />
                 </div>
               </section>
             </div>
@@ -481,18 +464,24 @@ export default function ResultsPage() {
               )}
             </div>
           )}
+
+          {activeTab === 'card' && (
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6">
+                <ResultCard 
+                  responses={stats.oneWordAnswers} 
+                  category={book?.category || 'friends'}
+                  template={selectedTemplate}
+                  onTemplateChange={setSelectedTemplate}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
-      <FloatingButton onClick={handleGenerateCard} />
-      
-      {generating && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-zinc-900 px-6 py-4 rounded-2xl flex items-center gap-3">
-            <div className="w-5 h-5 border-2 border-zinc-300 border-t-black dark:border-t-white rounded-full animate-spin" />
-            <span>Generating card...</span>
-          </div>
-        </div>
+      {activeTab !== 'card' && stats.oneWordAnswers.length > 0 && (
+        <FloatingButton onClick={handleGenerateCard} />
       )}
     </div>
   );
